@@ -1,4 +1,4 @@
-from flask import Flask, escape, request,jsonify
+from flask import Flask, escape, request,jsonify, render_template,session,redirect
 import json
 from flask_jsonpify import jsonpify
 import tensorflow as tf
@@ -32,14 +32,9 @@ df = pd.read_json('/Users/raagapranithakolla/sjsu/cmpe256/homework2/cmpe256-home
 
 mlp_bundle_embedding_weights = (next(iter(filter(lambda x: x.name == 'mlp_bundle_embedding', model.layers))).get_weights())
 
-@app.route('/',methods=["GET"])
-def getIndex():
-	return jsonify('Welcome to Recommender System home page')
-
-@app.route('/<int:bund_id>',methods=["GET"])
 def getRecomm(bund_id):
 	# this is a sample bundle to evaluate
-	desired_bundle_id = 200
+	desired_bundle_id = bund_id
 	model_path = 'steam_video_NCF_8_[64, 32, 16, 8].h5'
 	print('using model: %s' % model_path)
 	model = load_model(model_path)
@@ -89,11 +84,44 @@ def getRecomm(bund_id):
 	    results_df.loc[i] = [prob[0], df[df['itemId'] == i].iloc[0]['item_name'], df[df['itemId'] == i].iloc[0]['genre']]
 	results_df = results_df.sort_values(by=['probability'], ascending=False)
 
-	display_df = results_df.head(3)
-	df_list = display_df.values.tolist()
-	JSONP_data = jsonpify(df_list)
-	return JSONP_data
+	display_df = (results_df.head(3))
+	# df_list = display_df.values.tolist()
+	# JSONP_data = jsonpify(df_list)
+	print(type(display_df))
+	print('RAAGA returning from function')
+	# return JSONP_data
+	return display_df
 	# return jsonify(results_df.head(10))
+
+@app.route('/',methods=["GET","POST"])
+def getIndex():
+	# return jsonify('Welcome to Recommender System home page')
+	errors = []
+	results = {}
+	if request.method == "POST":
+        # get bundleId that the user has entered
+		try:
+			print('In post try')
+			bundle_id = request.form['bundleId']
+			print(f'RAAGA {bundle_id}')
+			df_res= getRecomm(int(bundle_id))
+			# results.append(res)
+			df_json = pd.read_json('/Users/raagapranithakolla/sjsu/cmpe256/homework2/cmpe256-homework2/steam_video/origin_steam_video_df.json')
+			df_actual = df_json[df_json['bundleId']==int(bundle_id)].head(3)
+			print(type(df))
+			print('RAAGA after getRecomm function call')
+			# return render_template('simple.html',  tables=[df_res.to_html(classes='data'),df_actual.to_html(classes='data')], titles=[df_res.columns.values,df_actual.columns.values])
+			return render_template('simple.html', tables=[df_res.to_html(classes='data')], titles=df_res.columns.values)
+            # res = getRecomm(bund_id)
+		except:
+			errors.append("Unable to get URL. Please make sure it's valid and try again.")
+	else:
+
+		return render_template('index.html',error=errors,results=results)
+	# return render_template('index.html')
+
+# @app.route('/<int:bund_id>',methods=["GET"])
+
 
 if __name__=="__main__":
 	app.run(Debug=True,port=8080)

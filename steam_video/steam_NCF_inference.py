@@ -21,46 +21,46 @@ print(keras.__version__)
 
 
 # this is a nice rock/oldies playlist
-desired_user_id = 500
-model_path = '/Users/raagapranithakolla/sjsu/cmpe256/homework2/steam_video/steam_video_NCF_8_[64, 32, 16, 8].h5'
+desired_bundle_id = 300
+model_path = '/Users/raagapranithakolla/sjsu/cmpe256/homework2/cmpe256-homework2/steam_video/steam_video_NCF_8_[64, 32, 16, 8].h5'
 print('using model: %s' % model_path)
 model = load_model(model_path)
 print('Loaded model!')
 
-df = pd.read_json('/Users/raagapranithakolla/sjsu/cmpe256/homework2/steam_video/origin_steam_video_df.json')
+df = pd.read_json('/Users/raagapranithakolla/sjsu/cmpe256/homework2/cmpe256-homework2/steam_video/origin_steam_video_df.json')
 
-mlp_user_embedding_weights = (next(iter(filter(lambda x: x.name == 'mlp_user_embedding', model.layers))).get_weights())
+mlp_bundle_embedding_weights = (next(iter(filter(lambda x: x.name == 'mlp_bundle_embedding', model.layers))).get_weights())
 
 # get the latent embedding for your desired user
-user_latent_matrix = mlp_user_embedding_weights[0]
-one_user_vector = user_latent_matrix[desired_user_id,:]
-one_user_vector = np.reshape(one_user_vector, (1,32))
+bundle_latent_matrix = mlp_bundle_embedding_weights[0]
+one_bundle_vector = bundle_latent_matrix[desired_bundle_id,:]
+one_bundle_vector = np.reshape(one_bundle_vector, (1,32))
 
-print('\nPerforming kmeans to find the nearest users/playlists...')
-# get 100 similar users
-# kmeans = KMeans(n_clusters=100, random_state=0, verbose=1).fit(user_latent_matrix)
-kmeans = MiniBatchKMeans(n_clusters=100, random_state=0, verbose=1).fit(user_latent_matrix)
-desired_user_label = kmeans.predict(one_user_vector)
-user_label = kmeans.labels_
+print('\nPerforming kmeans to find the nearest bundles/games...')
+# get 100 similar bundles
+# kmeans = KMeans(n_clusters=50, random_state=0, verbose=1).fit(bundle_latent_matrix)
+kmeans = MiniBatchKMeans(n_clusters=50, random_state=0, verbose=1).fit(bundle_latent_matrix)
+desired_bundle_label = kmeans.predict(one_bundle_vector)
+bundle_label = kmeans.labels_
 neighbors = []
-for user_id, user_label in enumerate(user_label):
-    print('user_id:{0} user_label:{1}'.format(user_id, user_label))
-    if user_label == desired_user_label:
-        neighbors.append(user_id)
-print('Found {0} neighbor users/playlists.'.format(len(neighbors))) 
+for bundle_id, bundle_label in enumerate(bundle_label):
+    print('bundle_id:{0} bundle_label:{1}'.format(bundle_id, bundle_label))
+    if bundle_label == desired_bundle_label:
+        neighbors.append(bundle_id)
+print('Found {0} neighbor bundles/games.'.format(len(neighbors))) 
 
-# get the tracks in similar users' playlists
+# get the games in similar bundles' 
 games = []
-for user_id in neighbors:
-    games += list(df[df['bundleId'] == int(user_id)]['itemId'])
+for bundle_id in neighbors:
+    games += list(df[df['bundleId'] == int(bundle_id)]['itemId'])
 print('Found {0} neighbor items from these games.'.format(len(games))) 
 
-users = np.full(len(games), desired_user_id, dtype='int32')
+games_arr = np.full(len(games), desired_bundle_id, dtype='int32')
 bundles = np.array(games, dtype='int32')
 
 print('\nRanking most likely games using the NeuMF model...')
-# and predict tracks for my user
-results = model.predict([users,bundles],batch_size=100, verbose=0) 
+# and predict games for my bundle
+results = model.predict([games_arr,bundles],batch_size=100, verbose=0) 
 results = results.tolist()
 print('Ranked the games!')
 
@@ -73,6 +73,6 @@ for i, prob in enumerate(results):
     results_df.loc[i] = [prob[0], df[df['itemId'] == i].iloc[0]['item_name'], df[df['itemId'] == i].iloc[0]['genre']]
 results_df = results_df.sort_values(by=['probability'], ascending=False)
 
-print(results_df.head(10))
+print(results_df.head(3))
 
 
